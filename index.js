@@ -3,7 +3,8 @@ const app = express();
 const cors = require('cors');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const e = require('express');
 
 // middleware
 app.use(cors());
@@ -26,26 +27,64 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        const usersCollection = client.db("bistroDb").collection("users");
         const menuCollection = client.db("bistroDb").collection("menu");
         const reviewCollection = client.db("bistroDb").collection("reviews");
         const cartCollection = client.db("bistroDb").collection("carts");
 
-        app.get('/menu', async(req, res) => {
+        // users related api's
+        app.get('/users', async(req, res)=> {
+            const result = await usersCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            const query = { email: user.email }
+            const existingUser = await usersCollection.findOne(query);
+
+            if (existingUser) {
+                return res.send({ message: 'user already exist' })
+            }
+            const result = await usersCollection.insertOne(user)
+            res.send(result);
+        })
+
+        // menu related api's
+        app.get('/menu', async (req, res) => {
             const result = await menuCollection.find().toArray();
             res.send(result)
         })
 
-        app.get('/reviews', async(req, res) => {
+        // reviews related api's
+        app.get('/reviews', async (req, res) => {
             const result = await reviewCollection.find().toArray();
             res.send(result)
         })
 
         // carts collection
-        app.post('/carts', async(req, res) => {
+
+        app.get('/carts', async (req, res) => {
+            const email = req.query.email;
+            if (!email) {
+                res.send([]);
+            }
+            const query = { email: email }
+            const result = await cartCollection.find(query).toArray();
+            res.send(result)
+        });
+
+        app.post('/carts', async (req, res) => {
             const item = req.body;
-            console.log(item);
             const result = await cartCollection.insertOne(item);
             res.send(result)
+        })
+
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await cartCollection.deleteOne(query);
+            res.send(result);
         })
 
         // Send a ping to confirm a successful connection
